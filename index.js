@@ -67,6 +67,8 @@ async function fetchFloorFromUrl(url) {
     floorPrice = parseFloat(floorText);
   } catch {
     // Do nothing, continue
+  } finally {
+    await browser.close();
   }
 
   return floorPrice;

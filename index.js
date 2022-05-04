@@ -35,7 +35,8 @@ async function checkFloorPrices() {
     if (!floorPrice) continue;
 
     // Append it to the log file
-    const logResource = { values: [[assetName, floorPrice, '=NOW()']] };
+    const createdAt = (new Date()).toISOString().slice(0, 19).replace(/-/g, '/').replace('T', ' ');
+    const logResource = { values: [[assetName, floorPrice, createdAt]] };
     await client.spreadsheets.values.append({ auth, spreadsheetId: GOOGLE_SHEET_ID, range: 'Floor Price Log', valueInputOption: 'USER_ENTERED', resource: logResource });
   
     // Update the floor price in the main sheet

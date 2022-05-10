@@ -1,8 +1,12 @@
-const cron = require('node-cron');
-const puppeteer = require('puppeteer');
-const sheets = require('@googleapis/sheets')
+import cron from 'node-cron';
+import sheets from '@googleapis/sheets';
+import fetch from 'node-fetch';
 
-const { CRON_SCHEDULE, GOOGLE_SHEET_ID } = process.env;
+const {
+  CRON_SCHEDULE,
+  GOOGLE_SHEET_ID,
+  OPENSEA_API_KEY,
+} = process.env;
 
 const auth = new sheets.auth.GoogleAuth({
   keyFile: "google-credentials.json",
@@ -30,8 +34,9 @@ async function checkFloorPrices() {
     console.log(`==> ${assetName}`)
 
     // Get the floor price
-    const researchUrl = assetFloorParts[1]
-    const floorPrice = await fetchFloorFromUrl(researchUrl);
+    const collectionUrl = assetFloorParts[1]
+    const collectionSlug = collectionUrl.split('/').pop();
+    const floorPrice = await fetchFloor(collectionSlug);
     if (!floorPrice) continue;
 
     // Append it to the log file
@@ -41,7 +46,7 @@ async function checkFloorPrices() {
   
     // Update the floor price in the main sheet
     const updateRange = `$CRISIS Assets!B${i + 1}`;
-    const updateValue = `=HYPERLINK("${researchUrl}", ${floorPrice})`;
+    const updateValue = `=HYPERLINK("${collectionUrl}", ${floorPrice})`;
     const updateResource = { values: [[updateValue]] };
     await client.spreadsheets.values.update({ auth, spreadsheetId: GOOGLE_SHEET_ID, range: updateRange, valueInputOption: 'USER_ENTERED', resource: updateResource })
   
@@ -50,29 +55,15 @@ async function checkFloorPrices() {
   }
 }
 
-async function fetchFloorFromUrl(url) {
-  const browser = await puppeteer.launch({
-    args: ['--no-sandbox'],
-    headless: true
-  })
-  const page = await browser.newPage();
-  let floorPrice = null;
-
-  await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.36')
-  await page.goto(url, { waitUnit: 'networkidle2' });
-  await page.waitForNetworkIdle()
-
-  try {
-    const floorItem = await page.$x('//div[contains(text(), "FLOOR")]');
-    const floorText = await floorItem[0].evaluate(el => el.nextElementSibling.innerText);
-    floorPrice = parseFloat(floorText);
-  } catch {
-    // Do nothing, continue
-  } finally {
-    await browser.close();
-  }
-
-  return floorPrice;
+async function fetchFloor(collectionSlug) {
+  const response = await fetch(`https://api.opensea.io/api/v1/collection/${collectionSlug}/stats`, {
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-KEY': OPENSEA_API_KEY,
+    }
+  });
+  const data = await response.json();
+  return data.stats.floor_price;
 }
 
 cron.schedule(CRON_SCHEDULE, checkFloorPrices);

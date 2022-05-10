@@ -24,7 +24,7 @@ async function checkFloorPrices() {
   for(let i=0; i < assetRows.length; i++) {
     const assetName = assetRows[i][0];
     const assetFloor = String(assetRows[i][1]);
-    const assetFloorParts = assetFloor.match(/^=HYPERLINK\("(.*)", (.*)\)/)
+    const assetFloorParts = assetFloor.match(/^=HYPERLINK\("(.*)",\s?(.*)\)/)
     if (!assetFloorParts) continue;
 
     console.log(`==> ${assetName}`)
